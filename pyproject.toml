@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "continualkit"
+version = "0.1.0"
+description = "Continual learning toolkit for LLMs — update without forgetting, prove it."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "ContinualKit Contributors" }]
+keywords = ["continual-learning", "llm", "fine-tuning", "catastrophic-forgetting", "evaluation"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+train = [
+    "torch>=2.0",
+    "transformers>=4.40",
+    "peft>=0.11",
+    "accelerate>=0.30",
+]
+tracking = [
+    "mlflow>=2.0",
+]
+
+[project.scripts]
+continual = "continualkit.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/continualkit/continualkit"
+Repository = "https://github.com/continualkit/continualkit"
+Issues = "https://github.com/continualkit/continualkit/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/continualkit"]
+
+# --- Ruff ---
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long — ruff format handles it
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["continualkit"]
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
