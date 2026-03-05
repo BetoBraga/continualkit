@@ -1,0 +1,201 @@
+name: Agent Dispatch
+
+on:
+  issues:
+    types: [labeled]
+
+# Only runs when agent-ready label is added
+jobs:
+  check-trigger:
+    if: github.event.label.name == 'agent-ready'
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.checks.outputs.should-run }}
+    permissions:
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Check rate limits and PR cap
+        id: checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Count open agent-generated PRs
+          OPEN_AGENT_PRS=$(gh pr list --repo "$REPO" --label "agent-generated" --state open --json number | jq length)
+          echo "Open agent PRs: $OPEN_AGENT_PRS"
+
+          if [ "$OPEN_AGENT_PRS" -ge 3 ]; then
+            echo "❌ Cap reached: $OPEN_AGENT_PRS agent PRs already open (max: 3)."
+            echo "should-run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "✅ Checks passed. Proceeding with agent dispatch."
+          echo "should-run=true" >> "$GITHUB_OUTPUT"
+
+  generate-pr:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]" openai
+
+      - name: Read issue content
+        id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body -q .body)
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title -q .title)
+          echo "title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
+          # Write body to file to avoid shell quoting issues
+          echo "$ISSUE_BODY" > /tmp/issue_body.txt
+
+      - name: Generate implementation
+        id: generate
+        env:
+          AGENT_LLM_KEY: ${{ secrets.AGENT_LLM_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python - <<'PYEOF'
+          import os, json, subprocess
+          from openai import OpenAI
+
+          client = OpenAI(api_key=os.environ["AGENT_LLM_KEY"])
+          issue_number = os.environ["ISSUE_NUMBER"]
+
+          with open("/tmp/issue_body.txt") as f:
+              issue_body = f.read()
+
+          system_prompt = """You are an implementation agent for ContinualKit, a Python continual learning toolkit.
+
+          Rules:
+          - Only touch files in: src/continualkit/, tests/, docs/, examples/, README.md
+          - NEVER touch: .github/workflows/, .github/CODEOWNERS, scripts/, pyproject.toml, LICENSE
+          - Always write tests for new code in tests/
+          - Keep diff small (< 200 lines total)
+          - Use ruff-compatible Python (py310+, type hints, no unused imports)
+          - One function at a time, no premature abstraction
+
+          Output JSON with this exact structure:
+          {
+            "files": [
+              {
+                "path": "src/continualkit/eval/__init__.py",
+                "content": "full file content here"
+              }
+            ],
+            "pr_description": "markdown description for the PR body"
+          }
+          """
+
+          response = client.chat.completions.create(
+              model="gpt-4o-mini",
+              messages=[
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user", "content": f"Issue #{issue_number}:\n\n{issue_body}"}
+              ],
+              response_format={"type": "json_object"},
+              temperature=0.2,
+          )
+
+          result = json.loads(response.choices[0].message.content)
+
+          # Write files
+          for file_spec in result.get("files", []):
+              path = file_spec["path"]
+              content = file_spec["content"]
+              os.makedirs(os.path.dirname(path), exist_ok=True) if "/" in path else None
+              with open(path, "w") as f:
+                  f.write(content)
+              print(f"Written: {path}")
+
+          # Write PR description
+          with open("/tmp/pr_description.txt", "w") as f:
+              f.write(result.get("pr_description", "Agent-generated implementation."))
+
+          print("Generation complete.")
+          PYEOF
+
+      - name: Run gates before creating PR
+        run: |
+          python -m ruff check . || (echo "❌ Lint failed — aborting PR creation." && exit 1)
+          python -m ruff format .
+          python -m pytest --tb=short -q || (echo "❌ Tests failed — aborting PR creation." && exit 1)
+          python scripts/check_diff_size.py --max-lines 400
+          python scripts/check_paths.py
+
+      - name: Create branch and PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          REPO: ${{ github.repository }}
+        run: |
+          BRANCH="agent/issue-${ISSUE_NUMBER}-$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "feat: agent implementation for issue #${ISSUE_NUMBER}"
+          git push origin "$BRANCH"
+
+          PR_BODY=$(cat /tmp/pr_description.txt)
+          FULL_BODY="## Issue relacionada
+          Fixes #${ISSUE_NUMBER}
+
+          ## O que mudou
+          ${PR_BODY}
+
+          ## Como testei
+          Testes automáticos incluídos. CI gates passaram antes da criação deste PR.
+
+          ## Checklist
+          - [x] Testes adicionados ou atualizados
+          - [x] ruff check passa
+          - [x] ruff format passa
+          - [x] pytest passa 100%
+          - [x] Nenhum path proibido tocado
+          - [x] Diff < 400 linhas
+
+          <!-- agent-generated: true -->"
+
+          gh pr create \
+            --repo "$REPO" \
+            --title "feat: [agent] $(echo "$ISSUE_TITLE" | cut -c1-60)" \
+            --body "$FULL_BODY" \
+            --label "agent-generated" \
+            --head "$BRANCH" \
+            --base main
+
+      - name: Log to activity issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          RUN_STATUS: ${{ job.status }}
+        run: |
+          # Find or note activity log issue (issue with title "Agent Activity Log")
+          LOG_ISSUE=$(gh issue list --repo "$REPO" --label "agent-log" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$LOG_ISSUE" ]; then
+            TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+            gh issue comment "$LOG_ISSUE" --repo "$REPO" \
+              --body "**${TIMESTAMP}** | Issue #${ISSUE_NUMBER} | Status: ${RUN_STATUS} | [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          fi

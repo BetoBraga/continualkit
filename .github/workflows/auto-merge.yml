@@ -1,0 +1,103 @@
+name: Auto Merge
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  check_suite:
+    types: [completed]
+
+jobs:
+  auto-merge:
+    # Only runs on agent-generated PRs with the auto-merge-safe label
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'agent-generated') &&
+      contains(github.event.pull_request.labels.*.name, 'auto-merge-safe')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: pip install -q requests
+
+      - name: Validate all merge criteria
+        id: criteria
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python - <<'PYEOF'
+          import os, subprocess, sys
+
+          pr_number = os.environ["PR_NUMBER"]
+          repo = os.environ["REPO"]
+          token = os.environ["GH_TOKEN"]
+
+          import json, urllib.request
+
+          def gh_get(path):
+              req = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/{path}",
+                  headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+              )
+              with urllib.request.urlopen(req) as r:
+                  return json.loads(r.read())
+
+          pr = gh_get(f"pulls/{pr_number}")
+          checks = gh_get(f"commits/{pr['head']['sha']}/check-runs")
+          reviews = gh_get(f"pulls/{pr_number}/reviews")
+          files = gh_get(f"pulls/{pr_number}/files")
+
+          failures = []
+
+          # 1. All CI checks must be green
+          failed_checks = [c for c in checks["check_runs"] if c["conclusion"] not in ("success", "skipped", None)]
+          if failed_checks:
+              failures.append(f"CI checks failing: {[c['name'] for c in failed_checks]}")
+
+          # 2. Diff < 200 lines
+          total_changes = sum(f["changes"] for f in files)
+          if total_changes > 200:
+              failures.append(f"Diff too large: {total_changes} lines (max: 200 for auto-merge)")
+
+          # 3. No forbidden paths
+          FORBIDDEN = [".github/workflows/", ".github/CODEOWNERS", "scripts/", "pyproject.toml", "LICENSE"]
+          forbidden_touched = [f["filename"] for f in files if any(f["filename"].startswith(p) for p in FORBIDDEN)]
+          if forbidden_touched:
+              failures.append(f"Forbidden paths touched: {forbidden_touched}")
+
+          # 4. Approval check
+          labels = [l["name"] for l in pr["labels"]]
+          is_trivial = "trivial" in labels
+          approvals = [r for r in reviews if r["state"] == "APPROVED"]
+          change_requests = [r for r in reviews if r["state"] == "CHANGES_REQUESTED"]
+
+          if change_requests:
+              failures.append("There are pending change requests.")
+          if not is_trivial and len(approvals) < 1:
+              failures.append("Needs at least 1 approval (or 'trivial' label for docs/tests-only PRs)")
+
+          if failures:
+              print("❌ Auto-merge criteria NOT met:")
+              for f in failures:
+                  print(f"   - {f}")
+              sys.exit(1)
+          else:
+              print(f"✅ All criteria met. Diff: {total_changes} lines, Approvals: {len(approvals)}")
+          PYEOF
+
+      - name: Merge PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --auto \
+            --subject "feat: agent implementation (#${PR_NUMBER})"
+          echo "✅ PR #${PR_NUMBER} merged via auto-merge."
