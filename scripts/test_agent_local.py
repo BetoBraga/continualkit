@@ -111,13 +111,14 @@ def run_gates() -> bool:
     print("\n── Running gates ─────────────────────────────────────")
     ok = True
 
-    print("\n[1/4] ruff check")
+    print("\n[1/4] ruff format (auto-fix)")
+    subprocess.run([sys.executable, "-m", "ruff", "format", "."], check=False)
+    subprocess.run([sys.executable, "-m", "ruff", "check", "--fix", "."], check=False)
+
+    print("\n[2/4] ruff check")
     r = subprocess.run([sys.executable, "-m", "ruff", "check", "."], check=False)
     if r.returncode != 0:
         ok = False
-
-    print("\n[2/4] ruff format")
-    subprocess.run([sys.executable, "-m", "ruff", "format", "."], check=False)
 
     print("\n[3/4] pytest")
     r = subprocess.run(
