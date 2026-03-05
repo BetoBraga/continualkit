@@ -21,7 +21,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          # Count open agent-generated PRs
           OPEN_AGENT_PRS=$(gh pr list --repo "$REPO" --label "agent-generated" --state open --json number | jq length)
           echo "Open agent PRs: $OPEN_AGENT_PRS"
 
@@ -52,7 +51,25 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]" openai
+        env:
+          AGENT_LLM_PROVIDER: ${{ secrets.AGENT_LLM_PROVIDER }}
+        run: |
+          pip install -e ".[dev]"
+
+          # Install the right LLM SDK based on provider
+          PROVIDER="${AGENT_LLM_PROVIDER:-groq}"
+          case "$PROVIDER" in
+            openai|groq|huggingface|ollama)
+              pip install openai
+              ;;
+            anthropic)
+              pip install anthropic
+              ;;
+            *)
+              echo "❌ Unknown provider: $PROVIDER"
+              exit 1
+              ;;
+          esac
 
       - name: Read issue content
         id: issue
@@ -61,73 +78,71 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
         run: |
-          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body -q .body)
+          gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body -q .body > /tmp/issue_body.txt
           ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title -q .title)
           echo "title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
-          echo "$ISSUE_BODY" > /tmp/issue_body.txt
 
-      - name: Generate implementation
-        id: generate
+      - name: Generate implementation via LLM
         env:
           AGENT_LLM_KEY: ${{ secrets.AGENT_LLM_KEY }}
+          AGENT_LLM_PROVIDER: ${{ secrets.AGENT_LLM_PROVIDER }}
+          AGENT_LLM_MODEL: ${{ secrets.AGENT_LLM_MODEL }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          python - <<'PYEOF'
-          import os, json, subprocess
-          from openai import OpenAI
-
-          client = OpenAI(api_key=os.environ["AGENT_LLM_KEY"])
-          issue_number = os.environ["ISSUE_NUMBER"]
-
-          with open("/tmp/issue_body.txt") as f:
-              issue_body = f.read()
-
-          system_prompt = """You are an implementation agent for ContinualKit, a Python continual learning toolkit.
+          SYSTEM_PROMPT='You are an implementation agent for ContinualKit, a Python continual learning toolkit for LLMs.
 
           Rules:
-          - Only touch files in: src/continualkit/, tests/, docs/, examples/, README.md
+          - Only create or modify files in: src/continualkit/, tests/, docs/, examples/, README.md
           - NEVER touch: .github/workflows/, .github/CODEOWNERS, scripts/, pyproject.toml, LICENSE
-          - Always write tests for new code in tests/
-          - Keep diff small (< 200 lines total)
-          - Use ruff-compatible Python (py310+, type hints, no unused imports)
-          - One function at a time, no premature abstraction
+          - Always write tests for every new function or class
+          - Keep diff small (< 200 lines total across all files)
+          - Use ruff-compatible Python: py310+, type hints, no unused imports
+          - Use stdlib only unless the issue explicitly allows a dependency
+          - One function or class per PR, no premature abstraction
+          - Tests must be in the tests/ directory, mirroring the src/ structure
 
-          Output JSON with this exact structure:
+          Output ONLY valid JSON with this exact structure:
           {
             "files": [
-              {
-                "path": "src/continualkit/eval/__init__.py",
-                "content": "full file content here"
-              }
+              {"path": "src/continualkit/eval/__init__.py", "content": "...full file content..."},
+              {"path": "tests/eval/test_metrics.py", "content": "...full file content..."}
             ],
-            "pr_description": "markdown description for the PR body"
-          }
-          """
+            "pr_description": "markdown string describing what was implemented and why"
+          }'
 
-          response = client.chat.completions.create(
-              model="gpt-4o-mini",
-              messages=[
-                  {"role": "system", "content": system_prompt},
-                  {"role": "user", "content": f"Issue #{issue_number}:\n\n{issue_body}"}
-              ],
-              response_format={"type": "json_object"},
-              temperature=0.2,
-          )
+          USER_MSG="Issue #${ISSUE_NUMBER}:
 
-          result = json.loads(response.choices[0].message.content)
+          $(cat /tmp/issue_body.txt)"
+
+          python scripts/llm_adapter.py \
+            --system "$SYSTEM_PROMPT" \
+            --user "$USER_MSG" \
+            --temperature 0.2 \
+            --out /tmp/llm_response.json
+
+      - name: Write generated files
+        run: |
+          python - <<'PYEOF'
+          import json, os
+
+          with open("/tmp/llm_response.json") as f:
+              result = json.load(f)
 
           for file_spec in result.get("files", []):
               path = file_spec["path"]
               content = file_spec["content"]
-              os.makedirs(os.path.dirname(path), exist_ok=True) if "/" in path else None
+              dirpath = os.path.dirname(path)
+              if dirpath:
+                  os.makedirs(dirpath, exist_ok=True)
               with open(path, "w") as f:
                   f.write(content)
               print(f"Written: {path}")
 
+          pr_desc = result.get("pr_description", "Agent-generated implementation.")
           with open("/tmp/pr_description.txt", "w") as f:
-              f.write(result.get("pr_description", "Agent-generated implementation."))
+              f.write(pr_desc)
 
-          print("Generation complete.")
+          print("Files written successfully.")
           PYEOF
 
       - name: Run gates before creating PR
@@ -144,24 +159,32 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ steps.issue.outputs.title }}
           REPO: ${{ github.repository }}
+          AGENT_LLM_PROVIDER: ${{ secrets.AGENT_LLM_PROVIDER }}
+          AGENT_LLM_MODEL: ${{ secrets.AGENT_LLM_MODEL }}
         run: |
+          PROVIDER="${AGENT_LLM_PROVIDER:-groq}"
+          MODEL="${AGENT_LLM_MODEL:-default}"
           BRANCH="agent/issue-${ISSUE_NUMBER}-$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add -A
-          git commit -m "feat: agent implementation for issue #${ISSUE_NUMBER}"
+          git commit -m "feat: agent implementation for issue #${ISSUE_NUMBER} [${PROVIDER}/${MODEL}]"
           git push origin "$BRANCH"
 
           PR_BODY=$(cat /tmp/pr_description.txt)
-          FULL_BODY="## Related Issue
+          gh pr create \
+            --repo "$REPO" \
+            --title "feat: [agent] $(echo "$ISSUE_TITLE" | cut -c1-60)" \
+            --body "## Related Issue
           Fixes #${ISSUE_NUMBER}
 
           ## What Changed
           ${PR_BODY}
 
           ## How I Tested
-          Automated tests included. CI gates passed before this PR was created.
+          Automated tests included. CI gates (ruff + pytest + diff size + path check) passed before this PR was created.
 
           ## Checklist
           - [x] Tests added or updated
@@ -171,12 +194,9 @@ jobs:
           - [x] No forbidden paths touched
           - [x] Diff < 400 lines
 
-          <!-- agent-generated: true -->"
-
-          gh pr create \
-            --repo "$REPO" \
-            --title "feat: [agent] $(echo "$ISSUE_TITLE" | cut -c1-60)" \
-            --body "$FULL_BODY" \
+          ---
+          _Generated by agent pipeline — provider: \`${PROVIDER}\`, model: \`${MODEL}\`_
+          <!-- agent-generated: true -->" \
             --label "agent-generated" \
             --head "$BRANCH" \
             --base main
@@ -188,10 +208,14 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
           RUN_STATUS: ${{ job.status }}
+          AGENT_LLM_PROVIDER: ${{ secrets.AGENT_LLM_PROVIDER }}
+          AGENT_LLM_MODEL: ${{ secrets.AGENT_LLM_MODEL }}
         run: |
           LOG_ISSUE=$(gh issue list --repo "$REPO" --label "agent-log" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
           if [ -n "$LOG_ISSUE" ]; then
             TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+            PROVIDER="${AGENT_LLM_PROVIDER:-groq}"
+            MODEL="${AGENT_LLM_MODEL:-default}"
             gh issue comment "$LOG_ISSUE" --repo "$REPO" \
-              --body "**${TIMESTAMP}** | Issue #${ISSUE_NUMBER} | Status: ${RUN_STATUS} | [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              --body "**${TIMESTAMP}** | Issue #${ISSUE_NUMBER} | Status: **${RUN_STATUS}** | Provider: \`${PROVIDER}/${MODEL}\` | [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           fi
