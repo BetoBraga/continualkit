@@ -1,6 +1,7 @@
 """Multi-provider LLM adapter for the ContinualKit agent pipeline.
 
 Supported providers (set via AGENT_LLM_PROVIDER env var):
+  openrouter   — OpenRouter (recommended) — one key, every model (default: llama-3.3-70b-instruct)
   openai       — OpenAI API (default model: gpt-4o-mini)
   groq         — Groq API, OpenAI-compatible (default model: llama-3.3-70b-versatile)
   anthropic    — Anthropic API (default model: claude-haiku-4-5-20251001)
@@ -10,10 +11,17 @@ Supported providers (set via AGENT_LLM_PROVIDER env var):
                Use it for local development and testing of the agent pipeline.
 
 Configuration (via env vars or GitHub Actions secrets):
-  AGENT_LLM_PROVIDER   — provider name (default: groq)
+  AGENT_LLM_PROVIDER   — provider name (default: openrouter)
   AGENT_LLM_MODEL      — model name (default: provider default, see above)
   AGENT_LLM_KEY        — API key (not required for ollama)
   OLLAMA_BASE_URL      — Ollama server URL (default: http://localhost:11434/v1)
+
+OpenRouter model examples (pass as AGENT_LLM_MODEL):
+  meta-llama/llama-3.3-70b-instruct   — fast, free tier available
+  anthropic/claude-haiku-4-5          — best for code generation
+  openai/gpt-4o-mini                  — reliable, cheap
+  google/gemini-flash-1.5             — fast multimodal
+  mistralai/mistral-small             — lightweight
 
 Usage:
   python scripts/llm_adapter.py --system "..." --user "..." > response.json
@@ -28,6 +36,10 @@ import sys
 # ── Provider defaults ──────────────────────────────────────────────────────────
 
 PROVIDER_DEFAULTS = {
+    "openrouter": {
+        "model": "meta-llama/llama-3.3-70b-instruct",
+        "base_url": "https://openrouter.ai/api/v1",
+    },
     "openai": {
         "model": "gpt-4o-mini",
         "base_url": None,  # uses SDK default
@@ -52,7 +64,7 @@ PROVIDER_DEFAULTS = {
 
 # ── OpenAI-compatible providers (openai SDK with custom base_url) ──────────────
 
-OPENAI_COMPATIBLE = {"openai", "groq", "huggingface", "ollama"}
+OPENAI_COMPATIBLE = {"openrouter", "openai", "groq", "huggingface", "ollama"}
 
 
 def call_openai_compatible(
@@ -78,7 +90,12 @@ def call_openai_compatible(
     else:
         base_url = defaults["base_url"]
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    default_headers = {}
+    if provider == "openrouter":
+        default_headers["HTTP-Referer"] = "https://github.com/BetoBraga/continualkit"
+        default_headers["X-Title"] = "ContinualKit Agent"
+
+    client = OpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
 
     response = client.chat.completions.create(
         model=model,
@@ -144,7 +161,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    provider = os.environ.get("AGENT_LLM_PROVIDER", "groq").lower()
+    provider = os.environ.get("AGENT_LLM_PROVIDER", "openrouter").lower()
     if provider not in PROVIDER_DEFAULTS:
         print(
             f"❌ Unknown provider: {provider!r}. Choose from: {list(PROVIDER_DEFAULTS)}",
