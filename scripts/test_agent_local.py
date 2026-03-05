@@ -122,7 +122,10 @@ def run_gates() -> bool:
 
     print("\n[1/4] ruff format (auto-fix)")
     subprocess.run([sys.executable, "-m", "ruff", "format", "."], check=False)
-    subprocess.run([sys.executable, "-m", "ruff", "check", "--fix", "--unsafe-fixes", "."], check=False)
+    subprocess.run(
+        [sys.executable, "-m", "ruff", "check", "--fix", "--unsafe-fixes", "."],
+        check=False,
+    )
 
     print("\n[2/4] ruff check")
     r = subprocess.run([sys.executable, "-m", "ruff", "check", "."], check=False)
