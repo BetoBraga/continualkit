@@ -1,0 +1,75 @@
+name: Agent-Ready Task
+description: Issue estruturada para implementação automática pelo pipeline de agentes.
+labels: ["agent-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Atenção:** issues com esta label podem ser implementadas automaticamente.
+        Todos os campos são obrigatórios — o agente não aceita ambiguidade.
+
+        Regras:
+        - Scope deve ser pequeno (estimativa < 200 linhas de diff)
+        - Deve incluir testes como parte do critério de aceitação
+        - Não pode tocar `.github/workflows/`, `scripts/`, `pyproject.toml`, `LICENSE`
+
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hipótese
+      description: "O que essa mudança vai resolver? Formato: 'Se [ação], então [resultado mensurável].'"
+      placeholder: "Se adicionar X em eval/__init__.py, então continual eval vai retornar Y."
+    validations:
+      required: true
+
+  - type: textarea
+    id: task
+    attributes:
+      label: Tarefa concreta
+      description: O que exatamente o agente deve implementar. Seja específico — nomes de função, módulo, comportamento.
+      placeholder: |
+        1. Adicionar função `compute_forgetting(before: dict, after: dict) -> float` em `src/continualkit/eval/__init__.py`
+        2. Recebe dicts com scores por tarefa antes e depois do treino
+        3. Retorna a queda média normalizada entre 0.0 e 1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critério de aceitação (testável)
+      description: O agente vai escrever testes pra esses critérios. Seja específico.
+      placeholder: |
+        - `compute_forgetting({"task_a": 0.9}, {"task_a": 0.8})` retorna 0.1 (±0.001)
+        - `compute_forgetting({"task_a": 0.9}, {"task_a": 0.9})` retorna 0.0
+        - Levanta `ValueError` se as keys não batem entre before e after
+        - Testes em `tests/eval/test_metrics.py`
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (o que NÃO tocar)
+      description: Delimite o que está fora do escopo dessa implementação.
+      placeholder: |
+        - Não implementar visualização ainda
+        - Não modificar CLI por agora
+        - Não adicionar dependências novas
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Módulo alvo
+      options:
+        - src/continualkit/train/
+        - src/continualkit/eval/
+        - src/continualkit/replay/
+        - src/continualkit/compare/
+        - src/continualkit/cli.py
+        - tests/
+        - docs/
+    validations:
+      required: true

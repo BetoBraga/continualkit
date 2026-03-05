@@ -1,0 +1,56 @@
+name: Bug Report
+description: Algo quebrou. Descreva o comportamento esperado e o atual.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Antes de abrir:** verifique se já existe uma issue similar.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: O que aconteceu?
+      description: Descrição clara do bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que deveria acontecer?
+      description: Comportamento esperado.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Como reproduzir
+      description: Passos mínimos pra reproduzir o bug.
+      placeholder: |
+        1. pip install continualkit
+        2. continual eval --config ...
+        3. Erro: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente
+      description: Python version, OS, versão do continualkit, GPU/CPU.
+      placeholder: |
+        - Python: 3.11
+        - OS: Ubuntu 22.04
+        - continualkit: 0.1.0
+        - Hardware: A100 / CPU only
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      description: Cole o erro completo aqui.
+      render: shell

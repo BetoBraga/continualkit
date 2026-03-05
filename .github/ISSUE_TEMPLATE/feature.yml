@@ -1,0 +1,57 @@
+name: Feature Request
+description: Proposta de nova funcionalidade ou melhoria.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Regra:** sem métrica de sucesso e teste de regressão, a feature não entra.
+        Se não consegue preencher os campos abaixo, a proposta ainda não está madura.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual dor isso resolve?
+      description: Descreva o problema ou limitação atual. "Eu preciso de X pra poder fazer Y" é melhor que "seria legal ter X".
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução proposta
+      description: Como você imaginaria que funcionaria? Interface, CLI, API?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critério de aceitação
+      description: Como saberemos que a feature está "pronta"? Seja específico e testável.
+      placeholder: |
+        - continual eval retorna forgetting score < 5% em benchmark X
+        - Relatório gerado em < 30s pra modelo de 7B
+        - Sem regressão nos testes existentes
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: O que você já tentou? Por que não funcionou?
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Módulo afetado
+      multiple: true
+      options:
+        - train
+        - eval
+        - replay
+        - compare
+        - cli
+        - docs
+        - outro

@@ -1,0 +1,7 @@
+# Áreas sensíveis — review obrigatório do maintainer
+.github/workflows/ @BetoBraga
+.github/CODEOWNERS @BetoBraga
+scripts/ @BetoBraga
+pyproject.toml @BetoBraga
+LICENSE @BetoBraga
+CONTRIBUTING.md @BetoBraga
