@@ -44,6 +44,14 @@ Rules:
 - Tests must be in the tests/ directory, mirroring the src/ structure
 - For tests that require optional dependencies (torch, transformers, peft, etc.), add pytest.importorskip at the top of the test module: torch = pytest.importorskip("torch")
 
+CRITICAL Python style rules (code that violates these will be REJECTED by ruff):
+- NEVER import from typing: Dict, List, Tuple, Set, Type — use built-in dict, list, tuple, set, type instead (Python 3.10+)
+- NEVER leave unused imports — every import must be used in the code
+- NEVER use Optional[X] — use X | None instead
+- NEVER write f-strings that span multiple lines or have unterminated quotes
+- All string literals must use double quotes
+- Every function must have return type annotations
+
 Output ONLY valid JSON with this exact structure:
 {
   "files": [
