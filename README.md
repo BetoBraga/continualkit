@@ -1,60 +1,60 @@
 # ContinualKit
 
-**Atualize seu LLM sem jogar roleta russa com regressão e forgetting.**
+**Update your LLM without playing roulette with regression and forgetting.**
 
-Fine-tune incremental, eval de forgetting first-class, release gates automáticos e rollback com trilha de auditoria. Pra times que já sofreram com "funcionava ontem, hoje piorou" e não querem sofrer de novo.
-
----
-
-## O problema
-
-O ciclo típico de fine-tuning em produção é quebrado:
-
-1. Dado novo → fine-tune rápido
-2. Sobe pra prod → regressão silenciosa em tarefas antigas
-3. Ninguém percebe até o suporte explodir
-4. Remédio: re-treino completo — caro, lento, e você ainda não sabe o que quebrou
-
-O gap real não é "treinar" — é **treinar sem esquecer + provar que não esqueceu**.
+Incremental fine-tuning, first-class forgetting evaluation, automatic release gates, and rollback with full audit trail. For teams that have already been burned by "it worked yesterday, now it's broken" — and don't want to go through it again.
 
 ---
 
-## O que é
+## The Problem
 
-Um toolkit Python open source que vira padrão do seu pipeline de ML:
+The typical fine-tuning cycle in production is broken:
+
+1. New data arrives → quick fine-tune
+2. Push to prod → silent regression on old tasks
+3. Nobody notices until support explodes
+4. Remedy: full retraining — expensive, slow, and you still don't know what broke
+
+The real gap isn't "training" — it's **training without forgetting + proving you didn't forget**.
+
+---
+
+## What It Is
+
+An open-source Python toolkit that becomes your team's ML pipeline standard:
 
 ```
-continual train    # incremental com replay + regularização
-continual eval     # suite de métricas de forgetting por tarefa
-continual compare  # candidate vs current — diff claro antes de subir
+continual train    # incremental with replay + regularization
+continual eval     # forgetting metrics suite per task
+continual compare  # candidate vs current — clear diff before pushing
 ```
 
-Com **release gates**: o modelo não entra em prod se quebrar mais de X% em tarefas antigas.
+With **release gates**: the model doesn't go to prod if it breaks more than X% on old tasks.
 
 ---
 
 ## Status
 
-**Pré-alpha — R&D em andamento.**
+**Pre-alpha — R&D in progress.**
 
-Os comandos existem. As implementações, não ainda. O foco agora é definir as interfaces corretas e o conjunto de benchmarks de referência.
+The commands exist. The implementations don't yet. The current focus is defining the right interfaces and reference benchmark suite.
 
-Acompanhe no [GitHub Issues](https://github.com/continualkit/continualkit/issues) ou contribua.
+Follow progress in [GitHub Issues](https://github.com/BetoBraga/continualkit/issues) or contribute.
 
 ---
 
 ## Quickstart
 
 ```bash
-# requer Python 3.10+
+# requires Python 3.10+
 pip install continualkit
 
-# ou, pra desenvolvimento
-git clone https://github.com/continualkit/continualkit
+# or, for development
+git clone https://github.com/BetoBraga/continualkit
 cd continualkit
 pip install -e ".[dev]"
 
-# verificar instalação
+# verify installation
 continual --version
 ```
 
@@ -62,24 +62,24 @@ continual --version
 
 ## Roadmap
 
-| Milestone | Foco | Status |
-|-----------|------|--------|
-| M1 — MVP | CLI funcional + eval suite + replay básico + integração HF/PEFT | Em andamento |
-| M2 — Runtime | Storage versionado, release gates automáticos, FastAPI, pipeline n8n | Planejado |
-| M3 — SOTA | MoE routing, replay inteligente, detecção de drift, políticas automáticas | Futuro |
+| Milestone | Focus | Status |
+|-----------|-------|--------|
+| M1 — MVP | Functional CLI + eval suite + basic replay + HF/PEFT integration | In progress |
+| M2 — Runtime | Versioned storage, automatic release gates, FastAPI, n8n pipeline | Planned |
+| M3 — SOTA | MoE routing, smart replay, drift detection, automatic policies | Future |
 
 ---
 
-## Contribuindo
+## Contributing
 
-Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir um PR.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 
-A regra mais importante: **sem métrica e teste de regressão, é não**. Toda feature precisa virar experimento ou gate mensurável.
+The most important rule: **no metric and regression test, no merge**. Every feature must become a measurable experiment or gate.
 
-Issues com a label `agent-ready` são priorizadas para implementação automática via nosso pipeline de agentes.
+Issues labeled `agent-ready` are prioritized for automatic implementation via our agent pipeline.
 
 ---
 
-## Licença
+## License
 
-Apache 2.0 — veja [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).

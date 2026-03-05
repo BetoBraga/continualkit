@@ -1,75 +1,75 @@
-# Contribuindo com ContinualKit
+# Contributing to ContinualKit
 
-Obrigado pelo interesse. Antes de qualquer coisa: este é um projeto R&D-first. A qualidade do baseline importa mais que a quantidade de features.
-
----
-
-## Princípios
-
-1. **Evidência > opinião.** Toda mudança que afeta comportamento de treino ou eval precisa de benchmark comparando antes/depois.
-2. **Baseline simples primeiro.** Antes de propor algo exótico (MoE, seleção inteligente de replay, adapters), o baseline simples (replay + regularização) precisa estar sólido.
-3. **Sem regressão.** Se sua mudança quebra tarefas existentes sem justificativa clara, é não.
+Thanks for your interest. Before anything: this is an R&D-first project. Baseline quality matters more than feature quantity.
 
 ---
 
-## Setup de desenvolvimento
+## Principles
+
+1. **Evidence over opinion.** Every change that affects training or eval behavior needs a benchmark comparing before/after.
+2. **Simple baseline first.** Before proposing something exotic (MoE, smart replay selection, adapters), the simple baseline (replay + regularization) must be solid.
+3. **No regression.** If your change breaks existing tasks without clear justification, it's a no.
+
+---
+
+## Development Setup
 
 ```bash
-git clone https://github.com/continualkit/continualkit
+git clone https://github.com/BetoBraga/continualkit
 cd continualkit
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-Verificar setup:
+Verify setup:
 
 ```bash
-ruff check .           # deve retornar 0 erros
-ruff format --check .  # deve retornar 0 erros
-pytest                 # todos os testes passando
+ruff check .           # should return 0 errors
+ruff format --check .  # should return 0 errors
+pytest                 # all tests passing
 ```
 
 ---
 
-## Abrindo uma issue
+## Opening an Issue
 
-Use os templates — eles existem por um motivo.
+Use the templates — they exist for a reason.
 
-- **Bug:** descreva o comportamento esperado, o comportamento atual, e como reproduzir.
-- **Feature:** descreva a dor que resolve, a métrica de sucesso, e o menor teste que valida a ideia.
-- **`agent-ready`:** issues marcadas com essa label podem ser implementadas automaticamente pelo pipeline de agentes. Use o template específico — ele exige hipótese + critério de aceitação + scope bem definido.
-
----
-
-## Abrindo um PR
-
-1. Fork o repo e crie uma branch a partir de `main`
-2. Faça suas mudanças
-3. Garanta que `ruff check .`, `ruff format --check .` e `pytest` passam localmente
-4. Abra o PR usando o template — todas as seções são obrigatórias
-5. PRs sem testes para código novo não são aceitos
+- **Bug:** describe the expected behavior, the actual behavior, and how to reproduce it.
+- **Feature:** describe the pain it solves, the success metric, and the smallest test that validates the idea.
+- **`agent-ready`:** issues labeled with this tag may be automatically implemented by the agent pipeline. Use the specific template — it requires a hypothesis + acceptance criteria + well-defined scope.
 
 ---
 
-## Code style
+## Opening a PR
 
-- Ruff cuida de tudo: `ruff check --fix . && ruff format .`
-- Type hints em funções públicas
-- Docstrings em módulos e classes públicas
-- Commits atômicos com mensagens descritivas
-
----
-
-## O que NÃO aceitar (pra não perder tempo)
-
-- Features sem acceptance criteria claros
-- Mudanças em `.github/workflows/` sem review explícito do maintainer
-- Dependências novas pesadas sem justificativa de ganho claro
-- "Isso seria legal ter" sem dado de que alguém precisa disso
+1. Fork the repo and create a branch from `main`
+2. Make your changes
+3. Ensure `ruff check .`, `ruff format --check .`, and `pytest` all pass locally
+4. Open the PR using the template — all sections are required
+5. PRs without tests for new code are not accepted
 
 ---
 
-## Dúvidas
+## Code Style
 
-Abra uma issue com a label `question`. Resposta em melhor esforço.
+- Ruff handles everything: `ruff check --fix . && ruff format .`
+- Type hints on public functions
+- Docstrings on public modules and classes
+- Atomic commits with descriptive messages
+
+---
+
+## What NOT to Submit (to save everyone time)
+
+- Features without clear acceptance criteria
+- Changes to `.github/workflows/` without explicit maintainer review
+- Heavy new dependencies without clear justification
+- "This would be nice to have" without data showing someone needs it
+
+---
+
+## Questions
+
+Open an issue with the `question` label. Best-effort response.

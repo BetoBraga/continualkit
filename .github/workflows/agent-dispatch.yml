@@ -64,7 +64,6 @@ jobs:
           ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body -q .body)
           ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title -q .title)
           echo "title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
-          # Write body to file to avoid shell quoting issues
           echo "$ISSUE_BODY" > /tmp/issue_body.txt
 
       - name: Generate implementation
@@ -117,7 +116,6 @@ jobs:
 
           result = json.loads(response.choices[0].message.content)
 
-          # Write files
           for file_spec in result.get("files", []):
               path = file_spec["path"]
               content = file_spec["content"]
@@ -126,7 +124,6 @@ jobs:
                   f.write(content)
               print(f"Written: {path}")
 
-          # Write PR description
           with open("/tmp/pr_description.txt", "w") as f:
               f.write(result.get("pr_description", "Agent-generated implementation."))
 
@@ -157,22 +154,22 @@ jobs:
           git push origin "$BRANCH"
 
           PR_BODY=$(cat /tmp/pr_description.txt)
-          FULL_BODY="## Issue relacionada
+          FULL_BODY="## Related Issue
           Fixes #${ISSUE_NUMBER}
 
-          ## O que mudou
+          ## What Changed
           ${PR_BODY}
 
-          ## Como testei
-          Testes automáticos incluídos. CI gates passaram antes da criação deste PR.
+          ## How I Tested
+          Automated tests included. CI gates passed before this PR was created.
 
           ## Checklist
-          - [x] Testes adicionados ou atualizados
-          - [x] ruff check passa
-          - [x] ruff format passa
-          - [x] pytest passa 100%
-          - [x] Nenhum path proibido tocado
-          - [x] Diff < 400 linhas
+          - [x] Tests added or updated
+          - [x] ruff check passes
+          - [x] ruff format passes
+          - [x] pytest passes 100%
+          - [x] No forbidden paths touched
+          - [x] Diff < 400 lines
 
           <!-- agent-generated: true -->"
 
@@ -192,7 +189,6 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_STATUS: ${{ job.status }}
         run: |
-          # Find or note activity log issue (issue with title "Agent Activity Log")
           LOG_ISSUE=$(gh issue list --repo "$REPO" --label "agent-log" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
           if [ -n "$LOG_ISSUE" ]; then
             TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")

@@ -12,16 +12,16 @@ import argparse
 import sys
 
 REQUIRED_SECTIONS = [
-    "## Issue relacionada",
-    "## O que mudou",
-    "## Como testei",
+    "## Related Issue",
+    "## What Changed",
+    "## How I Tested",
     "## Checklist",
 ]
 
 PLACEHOLDER_PATTERNS = [
-    "Fixes #<!-- número do issue -->",
-    "<!-- Descrição clara",
-    "<!-- Descreva os testes",
+    "Fixes #<!-- issue number -->",
+    "<!-- Clear, objective description",
+    "<!-- Describe the tests",
 ]
 
 

@@ -1,51 +1,51 @@
 name: Feature Request
-description: Proposta de nova funcionalidade ou melhoria.
+description: Proposal for a new feature or improvement.
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        **Regra:** sem métrica de sucesso e teste de regressão, a feature não entra.
-        Se não consegue preencher os campos abaixo, a proposta ainda não está madura.
+        **Rule:** no success metric and regression test, no merge.
+        If you can't fill in the fields below, the proposal isn't ready yet.
 
   - type: textarea
     id: problem
     attributes:
-      label: Qual dor isso resolve?
-      description: Descreva o problema ou limitação atual. "Eu preciso de X pra poder fazer Y" é melhor que "seria legal ter X".
+      label: What pain does this solve?
+      description: Describe the current problem or limitation. "I need X to do Y" is better than "it would be nice to have X".
     validations:
       required: true
 
   - type: textarea
     id: solution
     attributes:
-      label: Solução proposta
-      description: Como você imaginaria que funcionaria? Interface, CLI, API?
+      label: Proposed solution
+      description: How would it work? Interface, CLI, API?
     validations:
       required: true
 
   - type: textarea
     id: acceptance
     attributes:
-      label: Critério de aceitação
-      description: Como saberemos que a feature está "pronta"? Seja específico e testável.
+      label: Acceptance criteria
+      description: How will we know the feature is "done"? Be specific and testable.
       placeholder: |
-        - continual eval retorna forgetting score < 5% em benchmark X
-        - Relatório gerado em < 30s pra modelo de 7B
-        - Sem regressão nos testes existentes
+        - continual eval returns forgetting score < 5% on benchmark X
+        - Report generated in < 30s for a 7B model
+        - No regression on existing tests
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternativas consideradas
-      description: O que você já tentou? Por que não funcionou?
+      label: Alternatives considered
+      description: What have you already tried? Why didn't it work?
 
   - type: dropdown
     id: scope
     attributes:
-      label: Módulo afetado
+      label: Affected module
       multiple: true
       options:
         - train
@@ -54,4 +54,4 @@ body:
         - compare
         - cli
         - docs
-        - outro
+        - other

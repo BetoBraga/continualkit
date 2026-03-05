@@ -17,7 +17,7 @@ def train(config: str | None) -> None:
     CONFIG: path to training config file (YAML or JSON).
     """
     click.echo("continualkit train — not implemented yet.")
-    click.echo("Track progress: https://github.com/continualkit/continualkit")
+    click.echo("Track progress: https://github.com/BetoBraga/continualkit")
 
 
 @app.command()
@@ -28,7 +28,7 @@ def eval(config: str | None) -> None:  # noqa: A001
     CONFIG: path to eval config file (YAML or JSON).
     """
     click.echo("continualkit eval — not implemented yet.")
-    click.echo("Track progress: https://github.com/continualkit/continualkit")
+    click.echo("Track progress: https://github.com/BetoBraga/continualkit")
 
 
 @app.command()
@@ -41,4 +41,4 @@ def compare(candidate: str | None, baseline: str | None) -> None:
     BASELINE:  path or identifier of the current baseline.
     """
     click.echo("continualkit compare — not implemented yet.")
-    click.echo("Track progress: https://github.com/continualkit/continualkit")
+    click.echo("Track progress: https://github.com/BetoBraga/continualkit")
