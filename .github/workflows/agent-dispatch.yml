@@ -157,7 +157,7 @@ jobs:
       - name: Run gates before creating PR
         run: |
           python -m ruff format .
-          python -m ruff check --fix . || true
+          python -m ruff check --fix --unsafe-fixes . || true
           python -m ruff check . || (echo "❌ Lint failed — aborting PR creation." && exit 1)
           python -m pytest --tb=short -q || (echo "❌ Tests failed — aborting PR creation." && exit 1)
           python scripts/check_diff_size.py --max-lines 400
