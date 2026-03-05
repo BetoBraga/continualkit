@@ -57,9 +57,9 @@ jobs:
           pip install -e ".[dev]"
 
           # Install the right LLM SDK based on provider
-          PROVIDER="${AGENT_LLM_PROVIDER:-groq}"
+          PROVIDER="${AGENT_LLM_PROVIDER:-openrouter}"
           case "$PROVIDER" in
-            openai|groq|huggingface|ollama)
+            openrouter|openai|groq|huggingface|ollama)
               pip install openai
               ;;
             anthropic)
