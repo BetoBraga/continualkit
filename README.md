@@ -1,85 +1,49 @@
 # ContinualKit
 
-**Update your LLM without playing roulette with regression and forgetting.**
+**What did your model retain after the update?**
 
-Incremental fine-tuning, first-class forgetting evaluation, automatic release gates, and rollback with full audit trail. For teams that have already been burned by "it worked yesterday, now it's broken" — and don't want to go through it again.
+ContinualKit is an early-stage Python toolkit for evaluating regression after an LLM update. Today it can calculate mean forgetting from two sets of task scores that you already have. It does not run model inference or fine-tuning.
 
----
+## Run a score comparison
 
-## The Problem
+Python 3.10 or newer. This example needs no GPU, model weights, dataset download, or API key. The installation step needs access to the Python package index unless the build and runtime dependencies are already cached.
 
-The typical fine-tuning cycle in production is broken:
-
-1. New data arrives → quick fine-tune
-2. Push to prod → silent regression on old tasks
-3. Nobody notices until support explodes
-4. Remedy: full retraining — expensive, slow, and you still don't know what broke
-
-The real gap isn't "training" — it's **training without forgetting + proving you didn't forget**.
-
----
-
-## What It Is
-
-An open-source Python toolkit that becomes your team's ML pipeline standard:
-
-```
-continual train    # incremental with replay + regularization
-continual eval     # forgetting metrics suite per task
-continual compare  # candidate vs current — clear diff before pushing
-```
-
-With **release gates**: the model doesn't go to prod if it breaks more than X% on old tasks.
-
----
-
-## Status
-
-**Pre-alpha — R&D in progress.**
-
-The commands exist. The implementations don't yet. The current focus is defining the right interfaces and reference benchmark suite.
-
-Follow progress in [GitHub Issues](https://github.com/BetoBraga/continualkit/issues) or contribute.
-
----
-
-## Quickstart
-
-```bash
-# requires Python 3.10+
-pip install continualkit
-
-# or, for development
-git clone https://github.com/BetoBraga/continualkit
+```sh
+git clone https://github.com/BetoBraga/continualkit.git
 cd continualkit
-pip install -e ".[dev]"
-
-# verify installation
+python -m venv .venv
+# Activate: .venv\Scripts\Activate.ps1 (PowerShell) or source .venv/bin/activate (bash)
+python -m pip install -e .
 continual --version
+python examples/score_regression.py
 ```
 
----
+If you only want the example and already have the checkout, set `$env:PYTHONPATH = "src"` in PowerShell or run `PYTHONPATH=src python examples/score_regression.py` in bash. Then run the example as shown above in PowerShell. The metric and example use only the standard Python runtime in this mode.
 
-## Roadmap
+Output from the included [example](examples/score_regression.py):
 
-| Milestone | Focus | Status |
-|-----------|-------|--------|
-| M1 — MVP | Functional CLI + eval suite + basic replay + HF/PEFT integration | In progress |
-| M2 — Runtime | Versioned storage, automatic release gates, FastAPI, n8n pipeline | Planned |
-| M3 — SOTA | MoE routing, smart replay, drift detection, automatic policies | Future |
+```text
+support_qa: 0.90 -> 0.80 | loss: 0.10
+tool_selection: 0.70 -> 0.75 | loss: 0.00
+mean forgetting: 0.05 (5.0 percentage points)
+```
 
----
+### How to read it
 
-## Contributing
+The baseline is the first set of scores; the candidate is the second. They must cover the same, nonempty set of tasks. For each task the metric takes `max(0, baseline - candidate)`; it treats gains as zero loss so a gain on one task cannot erase a regression on another. Then it averages equally across tasks. Here the 10-point drop and zero loss average to **5 percentage points**. That interpretation assumes normalized higher-is-better scores. The library does not check score ranges or collect the scores for you.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+These scores are **fictional inputs**, not model outputs or a benchmark. A real comparison needs a fixed evaluation set, scoring procedure and baseline, and the same conditions for both checkpoints. Inspect per-task results too: a mean can hide a large drop on one task.
 
-The most important rule: **no metric and regression test, no merge**. Every feature must become a measurable experiment or gate.
+## What is implemented
 
-Issues labeled `agent-ready` are prioritized for automatic implementation via our agent pipeline.
+| Available now | Not implemented |
+| --- | --- |
+| `continualkit.eval.compute_forgetting` and its tests | Training, model inference, automatic release gates and rollback |
+| CLI installation/help and version | The `train`, `eval` and `compare` subcommands are placeholders |
+| Small example with fixed scores | A validated reference benchmark or production pipeline |
 
----
+## Contribute
 
-## License
+Install the development extras with `python -m pip install -e ".[dev]"`. Run `python -m pytest`, `ruff check .`, and `ruff format --check .`. CI runs lint and tests on Python 3.10–3.12. The example is a walkthrough; automated tests cover averaging, gains, mismatched tasks, empty input and the example’s output.
 
-Apache 2.0 — see [LICENSE](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [issues](https://github.com/BetoBraga/continualkit/issues) and the [Apache 2.0 license](LICENSE).
