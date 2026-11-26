@@ -2,7 +2,7 @@
 
 **What did your model retain after the update?**
 
-ContinualKit is an early-stage Python toolkit for evaluating regression after an LLM update. Today it can calculate mean forgetting from two sets of task scores that you already have. It does not run model inference or fine-tuning.
+ContinualKit is an early-stage Python toolkit for evaluating regression after an LLM update. Today it can calculate mean forgetting and check critical tasks against a loss threshold, using task scores that you already have. It does not run model inference or fine-tuning.
 
 ## Run a score comparison
 
@@ -34,13 +34,23 @@ The baseline is the first set of scores; the candidate is the second. They must 
 
 These scores are **fictional inputs**, not model outputs or a benchmark. A real comparison needs a fixed evaluation set, scoring procedure and baseline, and the same conditions for both checkpoints. Inspect per-task results too: a mean can hide a large drop on one task.
 
+## Gate an update on a critical task
+
+Use the same task names and numeric, higher-is-better scores in [0, 1] in both JSON files. This example sets a five-percentage-point maximum loss:
+
+```sh
+continual gate examples/baseline.json examples/candidate.json --critical support_qa --max-loss 0.05
+```
+
+The example exits with status 1: the 10-point loss on `support_qa` exceeds the threshold even though `tool_selection` improved. Repeat `--critical` to check multiple tasks. All selected tasks must pass; a loss equal to the threshold passes. The command exits with status 0 on pass and 2 for invalid input. It checks precomputed scores, not model behavior directly.
+
 ## What is implemented
 
 | Available now | Not implemented |
 | --- | --- |
-| `continualkit.eval.compute_forgetting` and its tests | Training, model inference, automatic release gates and rollback |
+| `continualkit.eval.compute_forgetting` and its tests | Training, model inference, managed release automation and rollback |
 | CLI installation/help and version | The `train`, `eval` and `compare` subcommands are placeholders |
-| Small example with fixed scores | A validated reference benchmark or production pipeline |
+| Small example with fixed scores and a critical-task CLI gate | A validated reference benchmark or production pipeline |
 
 ## Contribute
 
