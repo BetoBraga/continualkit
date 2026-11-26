@@ -42,7 +42,7 @@ Use the same task names and numeric, higher-is-better scores in [0, 1] in both J
 continual gate examples/baseline.json examples/candidate.json --critical support_qa --max-loss 0.05
 ```
 
-The example exits with status 1: the 10-point loss on `support_qa` exceeds the threshold even though `tool_selection` improved. Repeat `--critical` to check multiple tasks. All selected tasks must pass; a loss equal to the threshold passes. The command exits with status 0 on pass and 2 for invalid input. It checks precomputed scores, not model behavior directly.
+The example exits with status 1: the 10-point loss on `support_qa` exceeds the threshold even though `tool_selection` improved. Repeat `--critical` to check multiple tasks. All selected tasks must pass; a loss equal to the threshold passes. Inputs are compared without rounding; when the full loss cannot be displayed compactly, the output shows the exact subtraction instead. The command exits with status 0 on pass and 2 for invalid input. It checks precomputed scores, not model behavior directly.
 
 ## What is implemented
 

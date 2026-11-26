@@ -1,7 +1,7 @@
 """ContinualKit CLI — continual train, eval, compare."""
 
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import MAX_EMAX, MIN_EMIN, Context, Decimal, Inexact, InvalidOperation
 from pathlib import Path
 
 import click
@@ -81,6 +81,43 @@ def _scores(path: Path) -> dict[str, Decimal]:
     return scores
 
 
+def _loss_exceeds(before: Decimal, after: Decimal, threshold: Decimal) -> bool:
+    """Compare before - after - threshold exactly, without expanding exponent gaps."""
+    columns: dict[int, int] = {}
+    for value, direction in ((before, 1), (after, -1), (threshold, -1)):
+        _, digits, exponent = value.as_tuple()
+        for offset, digit in enumerate(reversed(digits)):
+            if digit:
+                power = exponent + offset
+                columns[power] = columns.get(power, 0) + direction * digit
+
+    carry = 0
+    previous = None
+    for power in sorted(columns, reverse=True):
+        if previous is not None and carry:
+            # Across an empty column this sign cannot be reversed by the suffix.
+            if previous - power > 1:
+                return carry > 0
+            carry *= 10
+        carry += columns[power]
+        # The unprocessed suffix is less than two units of this column in magnitude.
+        if abs(carry) >= 2:
+            return carry > 0
+        previous = power
+    return carry > 0
+
+
+def _format_loss(before: Decimal, after: Decimal) -> str:
+    if before <= after:
+        return "0"
+    display = Context(prec=28, Emin=MIN_EMIN, Emax=MAX_EMAX)
+    loss = display.subtract(before, after)
+    if display.flags[Inexact]:
+        # Keep both operands exact rather than printing a rounded pass/fail boundary.
+        return f"{before} - {after}"
+    return str(loss)
+
+
 @app.command()
 @click.argument(
     "baseline", type=click.Path(exists=True, dir_okay=False, path_type=Path)
@@ -119,8 +156,8 @@ def gate(
 
     failed = False
     for task in dict.fromkeys(critical):
-        loss = max(Decimal(0), before[task] - after[task])
-        blocked = loss > threshold
+        blocked = _loss_exceeds(before[task], after[task], threshold)
+        loss = _format_loss(before[task], after[task])
         failed |= blocked
         status = "FAIL" if blocked else "PASS"
         click.echo(f"{status} {task}: loss {loss} (max {threshold})")
