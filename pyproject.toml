@@ -45,9 +45,9 @@ tracking = [
 continual = "continualkit.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/continualkit/continualkit"
-Repository = "https://github.com/continualkit/continualkit"
-Issues = "https://github.com/continualkit/continualkit/issues"
+Homepage = "https://github.com/BetoBraga/continualkit"
+Repository = "https://github.com/BetoBraga/continualkit"
+Issues = "https://github.com/BetoBraga/continualkit/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/continualkit"]
